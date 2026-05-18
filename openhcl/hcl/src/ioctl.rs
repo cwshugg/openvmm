@@ -1800,12 +1800,12 @@ impl Hcl {
         let supports_lower_vtl_snp_guest_request =
             cpuid_features.supports_lower_vtl_guest_request();
 
-        tracing::debug!(
+        tracing::info!(
             supports_vtl_ret_action,
             supports_register_page,
             supports_lower_vtl_timer_virt,
             supports_lower_vtl_snp_guest_request,
-            "HCL capabilities",
+            "HACKATHON_HYPERCALL_TEST - HCL capabilities",
         );
 
         let vtl_fd = mshv_fd.create_vtl()?;

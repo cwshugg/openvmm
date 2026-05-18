@@ -479,6 +479,16 @@ impl SnpBackedShared {
             [[0u8; SNP_VMPCK_KEY_SIZE]; SNP_NUM_VMPCKS]
         };
 
+        let snp_secrets_present = partition_params.snp_secrets.is_some();
+        let vmpck_populated: [bool; SNP_NUM_VMPCKS] =
+            std::array::from_fn(|i| vmpck_keys[i].iter().any(|&b| b != 0));
+        tracing::info!(
+            CVM_ALLOWED,
+            snp_secrets_present,
+            ?vmpck_populated,
+            "HACKATHON_HYPERCALL_TEST - VMPCK keys extracted from SNP secrets page"
+        );
+
         Ok(Self {
             sev_status,
             invlpgb_count_max,
@@ -3146,6 +3156,14 @@ impl TlbFlushLockAccess for SnpTlbLockFlushAccess<'_> {
 
 impl hv1_hypercall::GetSnpVmpck for UhHypercallHandler<'_, '_, SnpBacked> {
     fn get_snp_vmpck(&mut self) -> hvdef::HvResult<hvdef::hypercall::GetSnpVmpckOutput> {
+        let calling_vtl = self.intercepted_vtl;
+
+        tracing::info!(
+            CVM_ALLOWED,
+            ?calling_vtl,
+            "HACKATHON_HYPERCALL_TEST - HvGetSnpVmpck hypercall received"
+        );
+
         if !self
             .vp
             .partition
@@ -3153,16 +3171,29 @@ impl hv1_hypercall::GetSnpVmpck for UhHypercallHandler<'_, '_, SnpBacked> {
             .cpuid_features()
             .supports_lower_vtl_guest_request()
         {
+            tracing::info!(
+                CVM_ALLOWED,
+                ?calling_vtl,
+                "HACKATHON_HYPERCALL_TEST - HvGetSnpVmpck denied: lower VTL guest request not supported"
+            );
             return Err(HvError::AccessDenied);
         }
 
         // The VMPCK index corresponds to the VMPL of the calling VTL:
         // VTL0 runs at VMPL2, VTL1 runs at VMPL1.
-        let index = match self.intercepted_vtl {
+        let index = match calling_vtl {
             GuestVtl::Vtl0 => 2,
             GuestVtl::Vtl1 => 1,
         };
         let vmpck_key = self.vp.shared.vmpck_keys[index];
+
+        tracing::info!(
+            CVM_ALLOWED,
+            ?calling_vtl,
+            index,
+            "HACKATHON_HYPERCALL_TEST - HvGetSnpVmpck returning VMPCK key"
+        );
+
         Ok(hvdef::hypercall::GetSnpVmpckOutput { vmpck_key })
     }
 }
